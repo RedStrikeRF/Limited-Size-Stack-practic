@@ -1,0 +1,84 @@
+using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Reflection;
+
+namespace LimitedSizeStack;
+
+public class ListModel<TItem>
+{
+    public List<TItem> Items { get; }
+    public int UndoLimit;
+    public List<string> Action;
+    public int indexOfAction = 0;
+    TypeConverter converter = TypeDescriptor.GetConverter(typeof(TItem));
+
+    public ListModel(int undoLimit) : this(new List<TItem>(), undoLimit)
+    {
+    }
+
+    public ListModel(List<TItem> items, int undoLimit)
+    {
+        Items = items;
+        UndoLimit = undoLimit;
+    }
+
+    public void AddItem(TItem item)
+    {
+        if (Items.Count < UndoLimit)
+        {
+            WritingActionHistory("Add", Items.Count-1, item);
+            Items.Add(item);
+        }
+    }
+
+    public void RemoveItem(int index)
+    {
+        WritingActionHistory("Remove", index, Items[index]);
+        Items.RemoveAt(index);
+    }
+
+    public bool CanUndo()
+    {
+        return Items.Count != 0;
+    }
+
+    //
+    public void Undo()
+    {
+        if (CanUndo())
+        {
+            var a = BakcUpAction(Action).Split(' ');
+            if (a[0] == "Remove")
+            {
+                Items.Insert(Int32.Parse(a[1]), (TItem)converter.ConvertFrom(a[2]));
+            }
+            else
+            {
+                Items.Remove((TItem)converter.ConvertFrom(a[2]));
+            }
+        }
+    }
+
+    public void WritingActionHistory(string operation, int index, object lastItem)
+    {
+        if (indexOfAction < 10) { indexOfAction += 1; }
+        else
+        {
+            for (var i = 0; i < Action.Count-1; i++)
+            {
+                Action[i] = Action[i + 1];
+            }
+        }
+        Action[indexOfAction] = operation.ToString() + " " + index.ToString() + " " + lastItem.ToString();
+    }
+
+    public string BakcUpAction(List<string> Action)
+    {
+        var preAction = Action[Action.Count-1];
+        Action.RemoveAt(Action.Count - 1);
+        indexOfAction -= 1;
+        return preAction;
+    }
+}
